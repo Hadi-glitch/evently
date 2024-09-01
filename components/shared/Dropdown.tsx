@@ -26,26 +26,42 @@ import {
 
 type DropdownProps = {
   value?: string;
-  onChangeHandler?: () => void;
+  onChangeHandler?: (value: string) => void;
 };
 
 const Dropdown = ({ value, onChangeHandler }: DropdownProps) => {
   const [categories, setCategories] = useState<ICategory[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddCategory = () => {
-    createCategory({
-      categoryName: newCategory.trim(),
-    }).then((category) => {
-      setCategories((prevState) => [prevState, category]);
-    });
+  const handleAddCategory = async () => {
+    const trimmedCategory = newCategory.trim();
+    if (!trimmedCategory) return;
+
+    try {
+      setIsAdding(true);
+      const category = await createCategory({
+        categoryName: trimmedCategory,
+      });
+      setCategories((prevState) => [...prevState, category]);
+      setNewCategory("");
+    } catch (error) {
+      console.error("Error creating category:", error);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   useEffect(() => {
     const getCategories = async () => {
-      const categoryList = await getAllCategories();
-
-      categoryList && setCategories(categoryList as ICategory[]);
+      try {
+        const categoryList = await getAllCategories();
+        if (categoryList) {
+          setCategories(categoryList as ICategory[]);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
     };
 
     getCategories();
@@ -58,17 +74,15 @@ const Dropdown = ({ value, onChangeHandler }: DropdownProps) => {
       </SelectTrigger>
       <SelectContent>
         {categories.length > 0 &&
-          categories.map((category) => {
-            return (
-              <SelectItem
-                key={category._id}
-                value={category._id}
-                className="select-item p-regular-14"
-              >
-                {category.name}
-              </SelectItem>
-            );
-          })}
+          categories.map((category) => (
+            <SelectItem
+              key={category._id}
+              value={category._id}
+              className="select-item p-regular-14"
+            >
+              {category.name}
+            </SelectItem>
+          ))}
 
         <AlertDialog>
           <AlertDialogTrigger className="p-medium-14 flex w-full rounded-sm py-3 pl-8 text-primary-500 hover:bg-primary-50 focus:text-primary-500">
@@ -81,17 +95,19 @@ const Dropdown = ({ value, onChangeHandler }: DropdownProps) => {
                 <Input
                   type="text"
                   placeholder="Category name"
+                  value={newCategory}
                   className="input-field mt-3"
                   onChange={(e) => setNewCategory(e.target.value)}
                 />
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isAdding}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => startTransition(handleAddCategory)}
+                disabled={isAdding || !newCategory.trim()}
               >
-                Add
+                {isAdding ? "Adding..." : "Add"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
